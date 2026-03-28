@@ -1,0 +1,220 @@
+#VRML_SIM R2025a utf8
+WorldInfo {
+  info [
+    "NFEC - Neural-Flow Environmental Controller"
+  ]
+  title "NFEC Focus Room"
+  basicTimeStep 32
+}
+Viewpoint {
+  orientation 1 0 0 -1.5708
+  position 0 10 0
+}
+Background {
+  skyColor [
+    0.15 0.15 0.15
+  ]
+}
+DirectionalLight {
+  ambientIntensity 0.5
+  direction -0.5 -1 -0.5
+}
+Solid {
+  translation 0 -0.05 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.8 0.8 0.8
+        }
+      }
+      geometry Box {
+        size 5 0.1 5
+      }
+    }
+  ]
+  name "floor"
+  boundingObject Box {
+    size 5 0.1 5
+  }
+}
+Solid {
+  translation 1.5 0.15 -1.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 0.1 0.1
+          emissiveColor 0.5 0 0
+        }
+      }
+      geometry Box {
+        size 0.3 0.3 0.3
+      }
+    }
+  ]
+  name "CoffeeMachine"
+  boundingObject Box {
+    size 0.3 0.3 0.3
+  }
+}
+Solid {
+  translation -1.5 0.1 1.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 0.1
+          emissiveColor 0.5 0.5 0
+        }
+      }
+      geometry Box {
+        size 0.15 0.2 0.15
+      }
+    }
+  ]
+  name "LightSwitch"
+  boundingObject Box {
+    size 0.15 0.2 0.15
+  }
+}
+Solid {
+  translation -1.5 0.2 -1.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.1 0.4 1
+          emissiveColor 0 0.1 0.5
+        }
+      }
+      geometry Box {
+        size 0.6 0.4 0.4
+      }
+    }
+  ]
+  name "Desk"
+  boundingObject Box {
+    size 0.6 0.4 0.4
+  }
+}
+Robot {
+  translation 0 0.05 0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0 0 0
+        }
+      }
+      geometry Cylinder {
+        height 0.08
+        radius 0.1
+      }
+    }
+    Transform {
+      translation 0.07 0.045 0
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0 1 1
+              emissiveColor 0 0.8 0.8
+            }
+          }
+          geometry Sphere {
+            radius 0.015
+          }
+        }
+      ]
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        axis 0 0 1
+        anchor 0 0 0.1
+      }
+      device [
+        RotationalMotor {
+          name "left_motor"
+        }
+      ]
+      endPoint Solid {
+        translation 0 0 0.1
+        rotation 1 0 0 1.5708
+        children [
+          Shape {
+            appearance Appearance {
+              material Material {
+                diffuseColor 0.5 0.5 0.5
+              }
+            }
+            geometry Cylinder {
+              height 0.02
+              radius 0.04
+            }
+          }
+        ]
+        name "left_wheel"
+        boundingObject Cylinder {
+          height 0.02
+          radius 0.04
+        }
+        physics Physics {
+          density -1
+          mass 0.05
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        axis 0 0 1
+        anchor 0 0 -0.1
+      }
+      device [
+        RotationalMotor {
+          name "right_motor"
+        }
+      ]
+      endPoint Solid {
+        translation 0 0 -0.1
+        rotation 1 0 0 1.5708
+        children [
+          Shape {
+            appearance Appearance {
+              material Material {
+                diffuseColor 0.5 0.5 0.5
+              }
+            }
+            geometry Cylinder {
+              height 0.02
+              radius 0.04
+            }
+          }
+        ]
+        name "right_wheel"
+        boundingObject Cylinder {
+          height 0.02
+          radius 0.04
+        }
+        physics Physics {
+          density -1
+          mass 0.05
+        }
+      }
+    }
+    GPS {
+    }
+    Compass {
+    }
+  ]
+  name "NFEC-Bot"
+  boundingObject Cylinder {
+    height 0.08
+    radius 0.1
+  }
+  physics Physics {
+    density -1
+    mass 0.5
+  }
+  controller "nfec_controller"
+}

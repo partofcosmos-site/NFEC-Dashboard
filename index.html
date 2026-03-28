@@ -2,29 +2,206 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>NFEC Command Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFEC GCS v2.0 | Neural-Flow Ground Control</title>
+    <link rel="stylesheet" href="index.css">
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="simulation.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 </head>
-<body>
-    <h1>Neural-Flow Environmental Controller</h1>
+<body class="gcs-theme">
+    <div class="scanline"></div>
+    <div class="vignette"></div>
 
-    <div id="status-panel">
-        </div>
-
-    <hr>
-
-    <div id="command-panel">
-        <h3>Manual Override Console</h3>
+    <!-- MAIN GRID CONTAINER -->
+    <main class="gcs-container">
         
-        </div>
+        <!-- HEADER / HUD -->
+        <header class="gcs-header">
+            <div class="brand">
+                <div class="logo-box"></div>
+                <div class="titles">
+                    <h1>NEURAL-FLOW <span class="accent">GCS v2.0</span></h1>
+                    <p class="subtitle">INDUSTRIAL DIGITAL TWIN INTERFACE // SYSTEM NODE: NF-01</p>
+                </div>
+            </div>
+            <div class="system-status">
+                <div class="status-item">
+                    <span class="label">COMMS:</span>
+                    <span class="value online" id="comms-status">LINK_ACTIVE</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">LATENCY:</span>
+                    <span class="value" id="latency-val">12ms</span>
+                </div>
+                <button id="connect-btn" class="gcs-btn primary">INITIALIZE LINK</button>
+            </div>
+        </header>
+
+        <!-- LEFT PANEL: 3D SIMULATION -->
+        <section class="viewport-box">
+            <div class="box-header">
+                <span class="header-icon"></span>
+                <h3>REAL-TIME SPATIAL TELEMETRY</h3>
+                <div class="coordinates">
+                    X: <span id="pos-x">0.00</span> | Z: <span id="pos-z">0.00</span>
+                </div>
+            </div>
+            <div id="sim-canvas" class="simulation-view"></div>
+            <div class="viewport-overlay">
+                <div class="crosshair"></div>
+                <div class="lidar-status">LIDAR: <span id="lidar-val" class="scanning">SCANNING...</span></div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: SYSTEMS & CONTROL -->
+        <aside class="control-panel">
+            
+            <!-- SYSTEMS HEALTH -->
+            <div class="data-group">
+                <div class="group-header">SYSTEMS DIAGNOSTICS</div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <label>BATTERY</label>
+                        <div class="progress-bar">
+                            <div id="battery-fill" class="fill" style="width: 100%"></div>
+                        </div>
+                        <span class="stat-value" id="battery-val">100%</span>
+                    </div>
+                    <div class="stat-card">
+                        <label>CORE TEMP</label>
+                        <span class="stat-value" id="temp-val">32.4°C</span>
+                    </div>
+                    <div class="stat-card">
+                        <label>SIGNAL</label>
+                        <span class="stat-value" id="signal-val">98%</span>
+                    </div>
+                    <div class="stat-card">
+                        <label>MOTOR LOAD</label>
+                        <span class="stat-value" id="load-val">12%</span>
+                    </div>
+                    <div class="stat-card highlight">
+                        <label>MANIPULATOR</label>
+                        <span class="stat-value" id="arm-val">STOWED</span>
+                    </div>
+                    <div class="stat-card" id="risk-card">
+                        <label>COLLISION RISK</label>
+                        <span class="stat-value" id="risk-val">LOW</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HOST TELEMETRY -->
+            <div class="data-group">
+                <div class="group-header">HOST CLUSTERS</div>
+                <div class="mini-stats">
+                    <div class="mini-item">CPU: <span id="cpu-val">0%</span></div>
+                    <div class="mini-item">RAM: <span id="ram-val">0%</span></div>
+                    <div class="mini-item">UPTIME: <span id="uptime-val">00:00:00</span></div>
+                </div>
+            </div>
+
+            <!-- TERMINAL / NLP CMD -->
+            <div class="terminal-box">
+                <div class="terminal-header">GCS_COMMAND_UPLINK</div>
+                <div id="terminal-log" class="terminal-output">
+                    <div class="log-entry system">>> System standby. Awaiting authentication...</div>
+                </div>
+                <div class="terminal-input-row">
+                    <span class="prompt">></span>
+                    <input type="text" id="cmd-input" placeholder="Enter intent: 'ready for study', 'brew_coffee'...">
+                    <button id="run-btn" class="gcs-btn secondary">EXEC</button>
+                </div>
+            </div>
+
+        </aside>
+    </main>
 
     <script>
-        // 6. JavaScript Logic goes here!
-        
-        // Step A: Create variables for your buttons and text elements using document.getElementById()
-        
-        // Step B: Write an event listener for the Activate button that changes the status text to "Robot Online" and the color to green.
-        
-        // Step C: Write an event listener for the Send button that takes the value from the input box and displays it in your log paragraph.
+        // --- GCS DASHBOARD LOGIC ---
+        const log = document.getElementById('terminal-log');
+        const cmdInput = document.getElementById('cmd-input');
+        const connectBtn = document.getElementById('connect-btn');
+        let isConnected = false;
+
+        function appendLog(msg, type='info') {
+            const div = document.createElement('div');
+            div.className = `log-entry ${type}`;
+            div.innerHTML = `<span class="timestamp">[${new Date().toLocaleTimeString([], {hour12:false})}]</span> ${msg}`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        async function updateTelemetry() {
+            try {
+                const res = await fetch('/telemetry');
+                const data = await res.json();
+                document.getElementById('cpu-val').innerText = data.cpu + '%';
+                document.getElementById('ram-val').innerText = data.ram + '%';
+                document.getElementById('uptime-val').innerText = data.uptime;
+                
+                // Detailed systems
+                if(data.systems) {
+                    const battery = Math.round(data.systems.battery);
+                    document.getElementById('battery-val').innerText = battery + '%';
+                    document.getElementById('battery-fill').style.width = battery + '%';
+                    document.getElementById('temp-val').innerText = data.systems.motor_temp.toFixed(1) + '°C';
+                    document.getElementById('signal-val').innerText = Math.round(data.systems.signal_strength) + '%';
+                }
+            } catch(e) {}
+        }
+
+        async function updateRobotPos() {
+            if(!isConnected) return;
+            try {
+                const res = await fetch('/robot/position');
+                const data = await res.json();
+                document.getElementById('pos-x').innerText = data.pos.x.toFixed(2);
+                document.getElementById('pos-z').innerText = data.pos.z.toFixed(2);
+                
+                const statusLine = document.getElementById('lidar-val');
+                if(data.pos.status.includes("Navigating")) {
+                    statusLine.innerText = "TRACKING_TARGET";
+                    statusLine.classList.add('active');
+                } else {
+                    statusLine.innerText = "IDLE_SCAN";
+                    statusLine.classList.remove('active');
+                }
+            } catch(e) {}
+        }
+
+        connectBtn.onclick = () => {
+            isConnected = !isConnected;
+            connectBtn.innerText = isConnected ? "DISCONNECT" : "INITIALIZE LINK";
+            connectBtn.classList.toggle('active');
+            appendLog(isConnected ? "Bi-directional link established. Neural-Flow Online." : "Link severed. System Safemode.", isConnected ? 'success' : 'warn');
+        };
+
+        async function runCommand() {
+            const cmd = cmdInput.value;
+            if(!cmd) return;
+            cmdInput.value = '';
+            appendLog(`UL-CMD: ${cmd}`, 'user');
+            
+            try {
+                const res = await fetch('/command', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({command: cmd})
+                });
+                const data = await res.json();
+                appendLog(`DL-RES: ${data.message}`, 'success');
+            } catch(e) {
+                appendLog("ERROR: UPLINK FAILURE", 'error');
+            }
+        }
+
+        document.getElementById('run-btn').onclick = runCommand;
+        cmdInput.onkeydown = (e) => { if(e.key === 'Enter') runCommand(); };
+
+        setInterval(updateTelemetry, 1500);
+        setInterval(updateRobotPos, 300);
     </script>
 </body>
 </html>
