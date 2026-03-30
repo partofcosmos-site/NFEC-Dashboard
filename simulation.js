@@ -31,6 +31,10 @@ let currentSpeed = 0;
 let pollTimer = 0;
 let frameCount = 0;
 
+// --- PID Control State ---
+let pidErrorSum = 0;
+let pidLastError = 0;
+
 // ─── INIT ──────────────────────────────────────────────────
 function initSimulation() {
     console.log("GCS Simulation initializing...");
@@ -366,7 +370,7 @@ function navigateRobot() {
     let avoidanceZ = 0;
     let collisionRisk = false;
 
-    // --- REACTIVE OBSTACLE AVOIDANCE LAYER ---
+    // --- REACTIVE OBSTACLE AVOIDANCE (ARTIFICIAL POTENTIAL FIELD) ---
     obstacles.forEach(obs => {
         const ox = obs.mesh.position.x - robot.position.x;
         const oz = obs.mesh.position.z - robot.position.z;
@@ -374,10 +378,10 @@ function navigateRobot() {
         const safeZone = obs.radius + 0.8;
 
         if (distToObs < safeZone) {
-            // Steering force: Push away from obstacle
-            const strength = (safeZone - distToObs) / safeZone;
-            avoidanceX -= ox * strength * 2;
-            avoidanceZ -= oz * strength * 2;
+            // Repulsive Force Vector (Inverse Square-ish Law)
+            const strength = Math.pow((safeZone - distToObs) / safeZone, 2);
+            avoidanceX -= ox * strength * 3.0;
+            avoidanceZ -= oz * strength * 3.0;
             collisionRisk = true;
         }
     });
@@ -386,17 +390,37 @@ function navigateRobot() {
     const finalDz = dz + avoidanceZ;
     const finalAngle = Math.atan2(finalDx, finalDz);
 
-    let angleDiff = finalAngle - robot.rotation.y;
-    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+    let angleError = finalAngle - robot.rotation.y;
+    while (angleError > Math.PI) angleError -= 2 * Math.PI;
+    while (angleError < -Math.PI) angleError += 2 * Math.PI;
 
-    robot.rotation.y += angleDiff * TURN_SPEED;
+    // ─── P.I.D. STEERING CONTROLLER ──────────────────────────
+    // Instead of snapping angles, we use Control Theory to steer smoothly.
+    const Kp = 0.08;  // Proportional Gain (How hard to steer towards error)
+    const Ki = 0.001; // Integral Gain (Fixes steady-state offsets)
+    const Kd = 0.4;   // Derivative Gain (Damps the turn to prevent oscillation)
+
+    pidErrorSum += angleError;
+    pidErrorSum = Math.max(-5, Math.min(5, pidErrorSum)); // Anti-windup
+    
+    const errorRate = angleError - pidLastError;
+    pidLastError = angleError;
+
+    // Control Output (Omega - Angular Velocity)
+    const omega = (Kp * angleError) + (Ki * pidErrorSum) + (Kd * errorRate);
+    robot.rotation.y += omega;
+
+    // ─── DIFFERENTIAL DRIVE KINEMATICS ───────────────────────
+    // Linear Velocity (V) = (v_Right + v_Left) / 2
     currentSpeed = Math.min(ROBOT_MAX_SPEED, currentSpeed + ACCEL);
     
-    // RESTORED MOVEMENT: Physical translation with hard boundaries
-    if (Math.abs(angleDiff) < 0.6) {
-        let nextX = robot.position.x + Math.sin(robot.rotation.y) * currentSpeed;
-        let nextZ = robot.position.z + Math.cos(robot.rotation.y) * currentSpeed;
+    // Slow down translational speed if the heading error is large
+    // (Simulates a real differential drive robot turning on the spot)
+    const linearVelocity = currentSpeed * Math.max(0.1, 1.0 - Math.abs(angleError) * 1.5);
+    
+    // Physical translation with hard boundaries
+    let nextX = robot.position.x + Math.sin(robot.rotation.y) * linearVelocity;
+    let nextZ = robot.position.z + Math.cos(robot.rotation.y) * linearVelocity;
         
         // --- HARD BOX COLLISION ---
         let canMove = true;
@@ -416,7 +440,6 @@ function navigateRobot() {
         } else {
             currentSpeed = 0; // Stop physically
         }
-    }
 
     if (frameCount % 60 === 0) {
         reportStatus(robot.position.x, robot.position.z, collisionRisk ? 'AVOIDING_HAZARD' : 'Navigating: ' + currentTarget);
