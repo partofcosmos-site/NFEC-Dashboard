@@ -215,22 +215,22 @@ function buildDetailedRobot() {
     armUpper = new THREE.Group();
     armUpper.position.y = 0.06;
     armGroup.add(armUpper);
-    const uArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.35, 12), highlightMat);
-    uArmMesh.position.y = 0.15;
+    const uArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.18, 12), highlightMat);
+    uArmMesh.position.y = 0.09;
     armUpper.add(uArmMesh);
 
     // Segment 3: Forearm
     armFore = new THREE.Group();
-    armFore.position.y = 0.3;
+    armFore.position.y = 0.18;
     armUpper.add(armFore);
-    const fArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3, 12), highlightMat);
+    const fArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.15, 12), highlightMat);
     fArmMesh.rotation.z = Math.PI / 2;
-    fArmMesh.position.x = 0.15;
+    fArmMesh.position.x = 0.075;
     armFore.add(fArmMesh);
 
     // Tool: Gripper
-    const gripper = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.08), baseMat);
-    gripper.position.x = 0.3;
+    const gripper = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.06), baseMat);
+    gripper.position.x = 0.15;
     armFore.add(gripper);
 
     const wheelGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.05, 16);
@@ -368,10 +368,14 @@ function navigateRobot() {
     robot.rotation.y += angleDiff * TURN_SPEED;
     currentSpeed = Math.min(ROBOT_MAX_SPEED, currentSpeed + ACCEL);
     
-    // RESTORED MOVEMENT: Physical translation
+    // RESTORED MOVEMENT: Physical translation with hard boundaries
     if (Math.abs(angleDiff) < 0.6) {
-        robot.position.x += Math.sin(robot.rotation.y) * currentSpeed;
-        robot.position.z += Math.cos(robot.rotation.y) * currentSpeed;
+        let nextX = robot.position.x + Math.sin(robot.rotation.y) * currentSpeed;
+        let nextZ = robot.position.z + Math.cos(robot.rotation.y) * currentSpeed;
+        
+        // HARD WALL COLLISION (Clamp to +/- 5.6 region)
+        robot.position.x = Math.max(-5.6, Math.min(5.6, nextX));
+        robot.position.z = Math.max(-5.6, Math.min(5.6, nextZ));
     }
 
     if (frameCount % 60 === 0) {
