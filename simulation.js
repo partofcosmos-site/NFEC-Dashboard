@@ -398,9 +398,24 @@ function navigateRobot() {
         let nextX = robot.position.x + Math.sin(robot.rotation.y) * currentSpeed;
         let nextZ = robot.position.z + Math.cos(robot.rotation.y) * currentSpeed;
         
-        // HARD WALL COLLISION (Clamp to +/- 5.6 region)
-        robot.position.x = Math.max(-5.6, Math.min(5.6, nextX));
-        robot.position.z = Math.max(-5.6, Math.min(5.6, nextZ));
+        // --- HARD BOX COLLISION ---
+        let canMove = true;
+        obstacles.forEach(obs => {
+            const ox = obs.mesh.position.x - nextX;
+            const oz = obs.mesh.position.z - nextZ;
+            const dist = Math.sqrt(ox * ox + oz * oz);
+            if (dist < obs.radius + 0.3) {
+                canMove = false; // Physically blocked by box
+            }
+        });
+
+        if (canMove) {
+            // HARD WALL COLLISION (Clamp to +/- 5.6 region)
+            robot.position.x = Math.max(-5.6, Math.min(5.6, nextX));
+            robot.position.z = Math.max(-5.6, Math.min(5.6, nextZ));
+        } else {
+            currentSpeed = 0; // Stop physically
+        }
     }
 
     if (frameCount % 60 === 0) {
