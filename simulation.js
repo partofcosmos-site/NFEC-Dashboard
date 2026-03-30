@@ -18,15 +18,10 @@ const TURN_SPEED = 0.08;
 
 // ─── STATE ─────────────────────────────────────────────────
 let scene, camera, renderer, clock;
-let robot, lidarRotator, currentTarget, targetPos;
+let robot, robotGroup, lidarBeam, lidarRotator;
 let armUpper, armFore; // Manipulator joints
 let armState = "stowed"; 
 let obstacles = []; // Physical collision hazards
-let trailParticles = [];
-let frameCount = 0;
-let pollTimer = 0;
-let currentSpeed = 0;
-let robot, robotGroup, lidarBeam, lidarRotator;
 let trailParticles = [];
 let currentTarget = null;
 let targetPos = null;
