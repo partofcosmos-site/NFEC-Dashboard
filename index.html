@@ -131,6 +131,19 @@
             div.innerHTML = `<span class="timestamp">[${new Date().toLocaleTimeString([], {hour12:false})}]</span> ${msg}`;
             log.appendChild(div);
             log.scrollTop = log.scrollHeight;
+
+            if (type === 'success' || type === 'warn' || type === 'error') {
+                speak(msg);
+            }
+        }
+
+        function speak(text) {
+            if (!window.speechSynthesis) return;
+            const cleanText = text.includes('DL-RES:') ? text.split('DL-RES:')[1] : text;
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.rate = 1.1;
+            utterance.pitch = 0.85; // Slightly robotic tone
+            window.speechSynthesis.speak(utterance);
         }
 
         async function updateTelemetry() {

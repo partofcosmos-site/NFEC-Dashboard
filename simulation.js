@@ -20,7 +20,9 @@ const TURN_SPEED = 0.08;
 let scene, camera, renderer, clock;
 let robot, robotGroup, lidarBeam, lidarRotator;
 let armUpper, armFore; // Manipulator joints
-let armState = "stowed"; 
+let armState = "stowed";
+let legGroups = []; // Climbing struts
+let isClimbing = false;
 let obstacles = []; // Physical collision hazards
 let trailParticles = [];
 let currentTarget = null;
@@ -240,6 +242,21 @@ function buildDetailedRobot() {
         w.rotation.x = Math.PI / 2; w.position.set(wx, 0.08, wz); robotGroup.add(w);
     });
 
+    // --- CLIMBING STRUTS (MORPHOLOGICAL UPGRADE) ---
+    const legGeo = new THREE.BoxGeometry(0.04, 0.4, 0.04);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x00f2ff, emissive: 0x00f2ff, emissiveIntensity: 0.3 });
+    const angles = [Math.PI/4, 3*Math.PI/4, 5*Math.PI/4, 7*Math.PI/4];
+    angles.forEach(angle => {
+        const legGroup = new THREE.Group();
+        legGroup.rotation.y = angle;
+        const leg = new THREE.Mesh(legGeo, legMat);
+        leg.position.set(0.3, 0.1, 0);
+        leg.rotation.z = Math.PI/6;
+        legGroup.add(leg);
+        robotGroup.add(legGroup);
+        legGroups.push(legGroup);
+    });
+
     robotGroup.position.set(0, 0, 0);
     scene.add(robotGroup);
     robot = robotGroup;
@@ -277,6 +294,14 @@ function animate() {
             armFore.rotation.z += (0 - armFore.rotation.z) * 0.05;
         }
     }
+
+    // --- LEGGED LOCOMOTION KINEMATICS ---
+    isClimbing = currentSpeed > 0.02; // Simulate climbing mode at higher speeds
+    legGroups.forEach((lg, i) => {
+        const targetRot = isClimbing ? Math.sin(Date.now() * 0.01 + i) * 0.4 : 0;
+        lg.children[0].rotation.z += (targetRot - lg.children[0].rotation.z) * 0.1;
+        lg.visible = isClimbing || armState !== "stowed"; 
+    });
 
     for (let i = trailParticles.length - 1; i >= 0; i--) {
         const p = trailParticles[i];
